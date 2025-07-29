@@ -3,7 +3,7 @@ import sys
 import os
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import timedelta
 import random
 from multiprocessing import Pool
 from itertools import product

@@ -7,9 +7,6 @@ from multiprocessing import Pool, Manager
 import sys
 import random
 import os
-from geopandas import GeoSeries
-from shapely.geometry import Point
-from haversine import haversine
 from scipy.stats import norm, cauchy
 import tensorflow_probability as tfp
 

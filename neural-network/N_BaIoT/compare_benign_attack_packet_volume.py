@@ -1,4 +1,3 @@
-import random
 import sys
 import matplotlib.pyplot as plt
 import pandas as pd

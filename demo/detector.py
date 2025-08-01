@@ -46,25 +46,49 @@ selected_nodes_for_correlation = {}  # per target node: list including self
 
 # ---------- UTILITIES ----------
 def load_per_node_assets(node_id):
-    """Load model, scaler, and selected correlated nodes for a target node."""
     if node_id in models:
-        return  # already loaded
+        return
     model_dir = os.path.join(MODEL_BASE_DIR, str(node_id))
     try:
         model = load_model(os.path.join(model_dir, "final_model.keras"))
         scaler = joblib.load(os.path.join(model_dir, "scaler.pkl"))
         with open(os.path.join(model_dir, "selected_nodes_for_correlation.pkl"), "rb") as f:
             sel = pickle.load(f)
-        # Ensure self is included
+        # Ensure self is included exactly once
         if node_id not in sel:
-            sel = [node_id] + sel
+            sel.insert(0, node_id)
+        # Dedupe while preserving order
+        seen = set()
+        sel_unique = []
+        for x in sel:
+            if x not in seen:
+                seen.add(x)
+                sel_unique.append(x)
+        sel = sel_unique
+
+        # Validate consistency with scaler
+        expected_features = scaler.mean_.shape[0]
+        if len(sel) != expected_features:
+            logging.warning(
+                f"For node {node_id}, loaded correlated set length {len(sel)} != scaler expects {expected_features}. "
+                "You must ensure the saved selected_nodes_for_correlation.pkl matches training. "
+                "Trimming/padding to match."
+            )
+            # If too many, truncate; if too few, cannot auto-fix reliably.
+            if len(sel) > expected_features:
+                sel = sel[: expected_features]
+                logging.info(f"Truncated correlated set to {sel}")
+            else:
+                logging.error(f"Correlated set too small ({len(sel)}) vs scaler expects {expected_features}; inference may fail.")
+
         models[node_id] = model
         scalers[node_id] = scaler
         selected_nodes_for_correlation[node_id] = sel
-        windows[node_id] = deque(maxlen=WINDOW_SIZE)  # will hold list of dicts per slot
+        windows[node_id] = deque(maxlen=WINDOW_SIZE)
         logging.info(f"Loaded assets for node {node_id}, correlated set: {sel}")
     except Exception as e:
         logging.error(f"Failed to load assets for node {node_id} from {model_dir}: {e}")
+
 
 def roll_time_slot(now):
     """Check if new slot started; if yes, flush previous and shift window."""
@@ -93,11 +117,10 @@ def try_infer():
         if target not in windows:
             continue
         if len(windows[target]) < WINDOW_SIZE:
-            continue  # thiếu full window
+            continue
 
-        sel = selected_nodes_for_correlation[target]  # list of correlated node IDs including self
+        sel = selected_nodes_for_correlation.get(target, [])
         num_features = len(sel)
-        # Build matrix (time_window, num_features)
         mat = np.zeros((WINDOW_SIZE, num_features), dtype=float)
         for t_idx, slot_dict in enumerate(windows[target]):
             for f_idx, node in enumerate(sel):
@@ -108,24 +131,24 @@ def try_infer():
         if scaler is None or model is None:
             continue
 
-        # **CORRECTION**: scale per time-step, not flatten whole window
-        # mat shape: (WINDOW_SIZE, num_features)
+        expected = scaler.mean_.shape[0]
+        if num_features != expected:
+            logging.error(f"Feature count mismatch for {target}: window has {num_features}, scaler expects {expected}; skipping inference.")
+            continue
+
         try:
-            scaled_steps = scaler.transform(mat)  # transforms each row independently
+            scaled_steps = scaler.transform(mat)  # per time-step
         except Exception as e:
             logging.error(f"Scaler transform failed for {target}: {e}")
-            return
+            continue
 
-        # reshape to (1, time_window, num_features)
         input_seq = scaled_steps.reshape(1, WINDOW_SIZE, num_features)
-
         prob = float(model.predict(input_seq, verbose=0)[0][0])
         attacked = prob > PREDICTION_THRESHOLD
         if attacked:
             logging.warning(f"[Node {target}] DDoS detected! score={prob:.3f}")
         else:
             logging.info(f"[Node {target}] benign. score={prob:.3f}")
-
 
 # ---------- PACKET HANDLER ----------
 def packet_callback(pkt):

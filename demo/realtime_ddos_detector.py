@@ -8,12 +8,12 @@ from scapy.sendrecv import sniff
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
 # Download scaler and training model
-scaler = joblib.load('scaler.pkl')             # Standardized storage set
-model = load_model('final_model.keras')        # Training model has been trained
+scaler = joblib.load('models/454/scaler.pkl')             # Standardized storage set
+model = load_model('models/454/final_model.keras')        # Training model has been trained
 
 # Download the relevant button list (if any)
 try:
-    with open('selected_nodes_for_correlation.pkl','rb') as f:
+    with open('models/454/selected_nodes_for_correlation.pkl', 'rb') as f:
         selected_nodes = pickle.load(f)
     logging.info(f"Correlated nodes: {selected_nodes}")
 except:

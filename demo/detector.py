@@ -89,47 +89,43 @@ def roll_time_slot(now):
         current_slot_start += TIME_SLOT_SECONDS
 
 def try_infer():
-    """For each target node, if sliding window is full, run inference."""
     for target in TARGET_NODES:
         if target not in windows:
             continue
         if len(windows[target]) < WINDOW_SIZE:
-            continue  # need full window
+            continue  # thiếu full window
 
-        # Build input matrix: shape (WINDOW_SIZE, num_features)
-        sel = selected_nodes_for_correlation[target]
-        # Order must match whatever was used in training: assume sel list order
-        mat = np.zeros((WINDOW_SIZE, len(sel)), dtype=float)
+        sel = selected_nodes_for_correlation[target]  # list of correlated node IDs including self
+        num_features = len(sel)
+        # Build matrix (time_window, num_features)
+        mat = np.zeros((WINDOW_SIZE, num_features), dtype=float)
         for t_idx, slot_dict in enumerate(windows[target]):
             for f_idx, node in enumerate(sel):
                 mat[t_idx, f_idx] = slot_dict.get(node, 0)
 
-        # Flatten as training did (LSTM expects (batch, time_steps, features))
-        # Standardize: scaler was fit on flattened windows in training code
         scaler = scalers.get(target)
         model = models.get(target)
         if scaler is None or model is None:
-            continue  # missing assets
+            continue
 
-        # The scaler in training likely saw shape (n_samples, WINDOW_SIZE * num_features) if they flattened for dense,
-        # but for LSTM they passed shape (batch, WINDOW_SIZE, features). Assuming they used scaler on flattened prior to reshape.
-        flat = mat.reshape(1, -1)  # shape (1, WINDOW_SIZE * num_features)
+        # **CORRECTION**: scale per time-step, not flatten whole window
+        # mat shape: (WINDOW_SIZE, num_features)
         try:
-            scaled_flat = scaler.transform(flat)  # still 2D
+            scaled_steps = scaler.transform(mat)  # transforms each row independently
         except Exception as e:
             logging.error(f"Scaler transform failed for {target}: {e}")
             return
 
-        # Reshape to (1, time_steps, features) for LSTM input
-        input_seq = scaled_flat.reshape(1, WINDOW_SIZE, len(sel))
-        # Predict
+        # reshape to (1, time_window, num_features)
+        input_seq = scaled_steps.reshape(1, WINDOW_SIZE, num_features)
+
         prob = float(model.predict(input_seq, verbose=0)[0][0])
         attacked = prob > PREDICTION_THRESHOLD
         if attacked:
             logging.warning(f"[Node {target}] DDoS detected! score={prob:.3f}")
-            # TODO: action: e.g., publish alert via MQTT, apply iptables block, etc.
         else:
             logging.info(f"[Node {target}] benign. score={prob:.3f}")
+
 
 # ---------- PACKET HANDLER ----------
 def packet_callback(pkt):

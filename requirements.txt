@@ -9,11 +9,9 @@ keras==3.10.0
 matplotlib==3.7.1
 numpy==1.26.4
 ovs==2.17.9
-packaging==20.9
 paho-mqtt==2.1.0
 pandas==2.2.2
 reportlab==3.6.13
-requests==2.25.1
 rich==14.0.0
 Routes==2.5.1
 scapy==2.6.1

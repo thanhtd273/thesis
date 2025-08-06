@@ -88,6 +88,8 @@ def calculate_dataset_step(dataset):
                         if temp.shape[0] == 0:
                             continue
                         return temp.shape[0]
+    return None
+
 
 def create_tf_dataset(X, y, batch_size):
     """Create a TensorFlow dataset for efficient data streaming."""

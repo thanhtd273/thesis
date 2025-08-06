@@ -39,24 +39,12 @@ def load_dataset(path):
     return data
 
 
-def generate_attack(
-    benign_data,
-    attack_begin_date,
-    attack_end_date,
-    attacked_ratio_nodes,
-    attack_duration,
-    attack_start_time,
-    attack_packet_cauchy,
-    attack_parameter,
-    num_days,
-    output_path,
-    data_type,
-):
+def generate_attack(benign_data, attack_begin_date, attack_end_date, attacked_ratio_nodes, attack_duration, attack_start_time, attack_packet_cauchy, attack_parameter, num_days, output_path, data_type):
     """Create attack in the benign dataset for the given features based on the data type.
 
     Keyword arguments:
     benign_data -- benign dataset to be used for attacking
-    attack_begin_date -- the begin date of the attack
+    attack_begin_date -- the beginning date of the attack
     attack_end_date -- the end date of the attack
     attacked_ratio_nodes -- the ratio of the nodes in the benign dataset to be attacked.
     attack_duration -- the duration of the attack
@@ -111,18 +99,8 @@ def generate_attack(
 
 
 def main_generate_attack(
-    dataset_directory_path,
-    group_number,
-    data_type,
-    num_train_days,
-    num_validation_days,
-    num_test_days,
-    k_list,
-    attacked_ratio_nodes_list,
-    attack_duration_list,
-    attack_start_times_list,
-    time_step,
-    num_nodes,
+    dataset_directory_path, group_number, data_type, num_train_days, num_validation_days, num_test_days, k_list,
+        attacked_ratio_nodes_list, attack_duration_list, attack_start_times_list, time_step, num_nodes,
 ):
     """The main function to be used for calling generate_attack function
 
@@ -138,7 +116,7 @@ def main_generate_attack(
 
     benign_dataset_path = f"{dataset_directory_path}group_{str(group_number)}/benign_data/benign_data_2021-01-02 00:00:00_2021-02-01 23:59:58_time_step_{str(time_step)}_num_ids_{str(num_nodes)}.csv"
     benign_data = load_dataset(benign_dataset_path)
-    # set the begin and end date of the dataset to be attacked
+    # set the beginning and end date of the dataset to be attacked
     if data_type == "train":
         attack_begin_date = benign_data.loc[0, "TIME"] + timedelta(days=2)
         attack_end_date = benign_data.loc[0, "TIME"] + timedelta(days=2 + num_train_days)
@@ -156,7 +134,7 @@ def main_generate_attack(
     
     prepare_output_directory(output_path)
 
-    # set the begin and end date of the dataset to be stored for generating features in generate_training_data.py
+    # set the beginning and end date of the dataset to be stored for generating features in generate_training_data.py
     # here we choose begin_date - 2days because in the features we have an occupancy average of 48 hours
     slice_benign_data_start = attack_begin_date - timedelta(days=2)
     slice_benign_data_end = attack_end_date
